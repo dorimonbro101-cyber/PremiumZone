@@ -35,6 +35,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { AppData, User, Product, Order, OrderStatus, SupportChat, ChatMessage } from './types';
 import { getAppData, saveAppData } from './storage';
+import { db, ref, onValue, set } from './firebase';
 
 // --- Components ---
 
@@ -75,6 +76,23 @@ export default function App() {
   const [showAddProductModal, setShowAddProductModal] = useState(false);
   const [showRejectionModal, setShowRejectionModal] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [designTheme, setDesignTheme] = useState<'premium' | 'minimal'>('premium');
+
+  // Firebase Sync
+  useEffect(() => {
+    const dataRef = ref(db, 'appData');
+    const unsubscribe = onValue(dataRef, (snapshot) => {
+      const firebaseData = snapshot.val();
+      if (firebaseData) {
+        setData(firebaseData);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const syncToFirebase = (newData: AppData) => {
+    set(ref(db, 'appData'), newData);
+  };
 
   // Persistence
   useEffect(() => {
@@ -125,7 +143,11 @@ export default function App() {
       registerDate: new Date().toISOString()
     };
 
-    setData(prev => ({ ...prev, users: [...prev.users, newUser] }));
+    setData(prev => {
+      const newData = { ...prev, users: [...prev.users, newUser] };
+      syncToFirebase(newData);
+      return newData;
+    });
     setCurrentUser(newUser);
     setShowRegister(false);
   };
@@ -182,11 +204,15 @@ export default function App() {
       orderDate: new Date().toISOString()
     };
 
-    setData(prev => ({
-      ...prev,
-      orders: [newOrder, ...prev.orders],
-      products: prev.products.map(p => p.id === product.id ? { ...p, stock: p.stock - quantity } : p)
-    }));
+    setData(prev => {
+      const newData = {
+        ...prev,
+        orders: [newOrder, ...prev.orders],
+        products: prev.products.map(p => p.id === product.id ? { ...p, stock: p.stock - quantity } : p)
+      };
+      syncToFirebase(newData);
+      return newData;
+    });
 
     setShowOrderModal(null);
     setActiveTab('orders');
@@ -195,19 +221,27 @@ export default function App() {
 
   // --- Admin Handlers ---
   const updateOrderStatus = (orderId: string, status: OrderStatus, reason?: string) => {
-    setData(prev => ({
-      ...prev,
-      orders: prev.orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason } : o)
-    }));
+    setData(prev => {
+      const newData = {
+        ...prev,
+        orders: prev.orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason } : o)
+      };
+      syncToFirebase(newData);
+      return newData;
+    });
     setShowRejectionModal(null);
   };
 
   const deleteProduct = (id: string) => {
     if (confirm('আপনি কি নিশ্চিত যে এই প্রোডাক্টটি ডিলিট করতে চান?')) {
-      setData(prev => ({
-        ...prev,
-        products: prev.products.filter(p => p.id !== id)
-      }));
+      setData(prev => {
+        const newData = {
+          ...prev,
+          products: prev.products.filter(p => p.id !== id)
+        };
+        syncToFirebase(newData);
+        return newData;
+      });
     }
   };
 
@@ -225,10 +259,14 @@ export default function App() {
     };
 
     setData(prev => {
+      let newData;
       if (existingId) {
-        return { ...prev, products: prev.products.map(p => p.id === existingId ? product : p) };
+        newData = { ...prev, products: prev.products.map(p => p.id === existingId ? product : p) };
+      } else {
+        newData = { ...prev, products: [...prev.products, product] };
       }
-      return { ...prev, products: [...prev.products, product] };
+      syncToFirebase(newData);
+      return newData;
     });
 
     setShowProductEditModal(null);
@@ -271,7 +309,9 @@ export default function App() {
         }];
       }
 
-      return { ...prev, chats: newChats as SupportChat[] };
+      const newData = { ...prev, chats: newChats as SupportChat[] };
+      syncToFirebase(newData);
+      return newData;
     });
 
     // AI Bot Response
@@ -317,45 +357,47 @@ export default function App() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
         {data.products.map(product => (
           <motion.div 
             key={product.id}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -10 }}
-            className="glass rounded-[2rem] overflow-hidden flex flex-col card-premium group"
+            className={`glass rounded-2xl sm:rounded-[2rem] overflow-hidden flex flex-col group ${
+              designTheme === 'minimal' ? 'border-none shadow-none bg-white/[0.03]' : 'card-premium'
+            }`}
           >
-            <div className="h-56 bg-white/[0.02] flex items-center justify-center p-8 relative overflow-hidden">
+            <div className="h-32 sm:h-56 bg-white/[0.02] flex items-center justify-center p-4 sm:p-8 relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <img src={product.image} alt={product.name} className="h-full object-contain relative z-10 drop-shadow-2xl transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
             </div>
-            <div className="p-8 flex-1 flex flex-col">
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-2xl font-display font-bold tracking-tight">{product.name}</h3>
-                <div className="text-right">
-                  <span className="text-accent font-bold text-xl block">৳{product.price}</span>
-                  <span className="text-[10px] text-gray-500 uppercase tracking-widest">{product.duration}</span>
+            <div className="p-4 sm:p-8 flex-1 flex flex-col">
+              <div className="flex flex-col sm:flex-row justify-between items-start mb-2 sm:mb-4">
+                <h3 className="text-sm sm:text-2xl font-display font-bold tracking-tight truncate w-full">{product.name}</h3>
+                <div className="text-left sm:text-right">
+                  <span className="text-accent font-bold text-base sm:text-xl block">৳{product.price}</span>
+                  <span className="text-[8px] sm:text-[10px] text-gray-500 uppercase tracking-widest">{product.duration}</span>
                 </div>
               </div>
-              <p className="text-gray-400 text-sm mb-8 leading-relaxed">{product.description}</p>
+              <p className="text-gray-400 text-[10px] sm:text-sm mb-4 sm:mb-8 leading-relaxed line-clamp-2 sm:line-clamp-none">{product.description}</p>
               
-              <div className="mt-auto space-y-4">
-                <div className="flex items-center justify-between text-[10px] text-gray-500 uppercase tracking-widest border-t border-white/5 pt-4">
-                  <span>স্টক এভেলেবল</span>
+              <div className="mt-auto space-y-2 sm:space-y-4">
+                <div className="flex items-center justify-between text-[8px] sm:text-[10px] text-gray-500 uppercase tracking-widest border-t border-white/5 pt-2 sm:pt-4">
+                  <span>স্টক</span>
                   <span className={product.stock > 0 ? 'text-success' : 'text-danger'}>{product.stock} টি</span>
                 </div>
                 <button 
                   onClick={() => currentUser ? setShowOrderModal(product) : setShowLogin(true)}
                   disabled={product.stock <= 0}
-                  className={`w-full py-4 rounded-2xl font-bold transition-all btn-premium flex items-center justify-center gap-2 ${
+                  className={`w-full py-2 sm:py-4 rounded-xl sm:rounded-2xl font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base ${
                     product.stock > 0 
-                      ? 'bg-white/5 hover:text-white' 
+                      ? (designTheme === 'minimal' ? 'bg-accent text-white' : 'bg-white/5 hover:text-white btn-premium')
                       : 'bg-white/[0.02] text-gray-600 cursor-not-allowed'
                   }`}
                 >
                   <span>{product.stock > 0 ? 'কিনুন' : 'স্টক আউট'}</span>
-                  {product.stock > 0 && <ChevronRight size={18} className="relative z-10" />}
+                  {product.stock > 0 && <ChevronRight size={14} className="relative z-10 sm:w-[18px] sm:h-[18px]" />}
                 </button>
               </div>
             </div>
@@ -436,7 +478,25 @@ export default function App() {
   };
 
   const ProfileView = () => {
-    if (!currentUser) return null;
+    if (!currentUser) {
+      return (
+        <div className="p-4 pb-24 max-w-2xl mx-auto">
+          <div className="glass rounded-[2.5rem] p-12 text-center border border-white/5">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-600">
+              <UserIcon size={40} />
+            </div>
+            <h3 className="text-xl font-bold mb-2">আপনি লগইন করেননি</h3>
+            <p className="text-gray-500 mb-8">প্রোফাইল দেখতে এবং অর্ডার করতে অনুগ্রহ করে লগইন করুন।</p>
+            <button 
+              onClick={() => setShowLogin(true)}
+              className="w-full py-4 bg-accent rounded-2xl font-bold text-white shadow-lg shadow-accent/20 hover:shadow-accent/40 transition-all"
+            >
+              লগইন করুন
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="p-4 pb-24 max-w-2xl mx-auto">
@@ -574,78 +634,80 @@ export default function App() {
 
   const AdminDashboard = () => {
     const stats = [
-      { label: 'পেন্ডিং অর্ডার', value: data.orders.filter(o => o.status === 'Pending').length, icon: Clock, color: 'text-amber-500', bg: 'bg-amber-500/10' },
-      { label: 'অ্যাপ্রুভড অর্ডার', value: data.orders.filter(o => o.status === 'Approved').length, icon: CheckCircle, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-      { label: 'কমপ্লিটেড অর্ডার', value: data.orders.filter(o => o.status === 'Completed').length, icon: ShoppingBag, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-      { label: 'মোট ইউজার', value: data.users.length, icon: Users, color: 'text-purple-500', bg: 'bg-purple-500/10' },
+      { label: 'পেন্ডিং', value: data.orders.filter(o => o.status === 'Pending').length, icon: Clock, color: designTheme === 'minimal' ? 'text-white' : 'text-amber-500', bg: 'bg-amber-500/10' },
+      { label: 'অ্যাপ্রুভড', value: data.orders.filter(o => o.status === 'Approved').length, icon: CheckCircle, color: designTheme === 'minimal' ? 'text-white' : 'text-blue-500', bg: 'bg-blue-500/10' },
+      { label: 'কমপ্লিটেড', value: data.orders.filter(o => o.status === 'Completed').length, icon: ShoppingBag, color: designTheme === 'minimal' ? 'text-white' : 'text-emerald-500', bg: 'bg-emerald-500/10' },
+      { label: 'ইউজার', value: data.users.length, icon: Users, color: designTheme === 'minimal' ? 'text-white' : 'text-purple-500', bg: 'bg-purple-500/10' },
     ];
 
     return (
-      <div className="p-6 space-y-8">
-        <div className="flex items-center justify-between">
-          <h3 className="text-3xl font-display font-bold">অ্যাডমিন ড্যাশবোর্ড</h3>
-          <div className="text-xs text-gray-500 font-mono">Last Updated: {new Date().toLocaleTimeString()}</div>
+      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h3 className="text-2xl sm:text-3xl font-display font-bold">অ্যাডমিন ড্যাশবোর্ড</h3>
+          <div className="text-[10px] text-gray-500 font-mono">Last Updated: {new Date().toLocaleTimeString()}</div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6">
           {stats.map((stat, i) => (
             <motion.div 
               key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
-              className="glass rounded-3xl p-6 flex items-center gap-6 group hover:border-accent/30 transition-all"
+              className={`glass rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-6 group hover:border-accent/30 transition-all ${
+                designTheme === 'minimal' ? 'bg-white/[0.03] border-none' : ''
+              }`}
             >
-              <div className={`w-14 h-14 rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
-                <stat.icon size={28} />
+              <div className={`w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl ${stat.bg} ${stat.color} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                <stat.icon size={20} className="sm:w-[28px] sm:h-[28px]" />
               </div>
-              <div>
-                <p className="text-xs text-gray-500 uppercase tracking-widest mb-1">{stat.label}</p>
-                <p className="text-3xl font-display font-bold">{stat.value}</p>
+              <div className="text-center sm:text-left">
+                <p className="text-[8px] sm:text-xs text-gray-500 uppercase tracking-widest mb-0.5 sm:mb-1">{stat.label}</p>
+                <p className="text-xl sm:text-3xl font-display font-bold">{stat.value}</p>
               </div>
             </motion.div>
           ))}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="glass rounded-3xl p-8">
-            <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <Clock size={20} className="text-amber-500" />
+          <div className={`glass rounded-2xl sm:rounded-3xl p-6 sm:p-8 ${designTheme === 'minimal' ? 'bg-white/[0.03] border-none' : ''}`}>
+            <h4 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+              <Clock size={18} className="text-amber-500" />
               সাম্প্রতিক পেন্ডিং অর্ডার
             </h4>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {data.orders.filter(o => o.status === 'Pending').slice(0, 5).map(order => (
-                <div key={order.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl">
-                  <div>
-                    <p className="font-bold text-sm">{order.productName}</p>
-                    <p className="text-[10px] text-gray-500">{order.userName} | {order.trxId}</p>
+                <div key={order.id} className="flex items-center justify-between p-3 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl">
+                  <div className="truncate mr-2">
+                    <p className="font-bold text-xs sm:text-sm truncate">{order.productName}</p>
+                    <p className="text-[8px] sm:text-[10px] text-gray-500 truncate">{order.userName} | {order.trxId}</p>
                   </div>
-                  <span className="text-xs font-bold text-accent">৳{order.totalPrice}</span>
+                  <span className="text-xs font-bold text-accent shrink-0">৳{order.totalPrice}</span>
                 </div>
               ))}
               {data.orders.filter(o => o.status === 'Pending').length === 0 && (
-                <p className="text-center text-gray-500 py-8">কোনো পেন্ডিং অর্ডার নেই</p>
+                <p className="text-center text-gray-500 py-8 text-sm">কোনো পেন্ডিং অর্ডার নেই</p>
               )}
             </div>
           </div>
 
-          <div className="glass rounded-3xl p-8">
-            <h4 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <MessageCircle size={20} className="text-accent" />
+          <div className={`glass rounded-2xl sm:rounded-3xl p-6 sm:p-8 ${designTheme === 'minimal' ? 'bg-white/[0.03] border-none' : ''}`}>
+            <h4 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6 flex items-center gap-2">
+              <MessageCircle size={18} className="text-accent" />
               সাম্প্রতিক চ্যাট
             </h4>
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {data.chats.slice(0, 5).map(chat => (
-                <div key={chat.id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl">
-                  <div>
-                    <p className="font-bold text-sm">{chat.userName}</p>
-                    <p className="text-[10px] text-gray-500 truncate max-w-[200px]">{chat.messages[chat.messages.length - 1]?.text}</p>
+                <div key={chat.id} className="flex items-center justify-between p-3 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl">
+                  <div className="truncate mr-2">
+                    <p className="font-bold text-xs sm:text-sm truncate">{chat.userName}</p>
+                    <p className="text-[8px] sm:text-[10px] text-gray-500 truncate max-w-[150px] sm:max-w-[200px]">{chat.messages[chat.messages.length - 1]?.text}</p>
                   </div>
-                  <span className="text-[10px] text-gray-500">{new Date(chat.lastMessageAt).toLocaleTimeString()}</span>
+                  <span className="text-[8px] sm:text-[10px] text-gray-500 shrink-0">{new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               ))}
               {data.chats.length === 0 && (
-                <p className="text-center text-gray-500 py-8">কোনো চ্যাট হিস্টোরি নেই</p>
+                <p className="text-center text-gray-500 py-8 text-sm">কোনো চ্যাট হিস্টোরি নেই</p>
               )}
             </div>
           </div>
@@ -893,9 +955,11 @@ export default function App() {
     };
 
     return (
-      <div className="p-6 h-[calc(100vh-120px)] flex gap-6">
-        <div className="w-80 glass rounded-[2rem] overflow-hidden flex flex-col border border-white/5">
-          <div className="p-6 border-b border-white/5 font-display font-bold text-lg flex items-center justify-between">
+      <div className="p-4 sm:p-6 h-[calc(100vh-120px)] flex flex-col lg:flex-row gap-4 sm:gap-6">
+        <div className={`w-full lg:w-80 glass rounded-[2rem] overflow-hidden flex flex-col border border-white/5 ${
+          selectedChatId ? 'hidden lg:flex' : 'flex'
+        }`}>
+          <div className="p-4 sm:p-6 border-b border-white/5 font-display font-bold text-lg flex items-center justify-between">
             চ্যাট লিস্ট
             <span className="text-[10px] bg-accent/10 text-accent px-2 py-1 rounded-full">{data.chats.length}</span>
           </div>
@@ -907,13 +971,13 @@ export default function App() {
                 <button 
                   key={chat.id}
                   onClick={() => setSelectedChatId(chat.id)}
-                  className={`w-full p-6 text-left hover:bg-white/[0.02] transition-all border-b border-white/5 flex flex-col gap-2 relative group ${
+                  className={`w-full p-4 sm:p-6 text-left hover:bg-white/[0.02] transition-all border-b border-white/5 flex flex-col gap-2 relative group ${
                     selectedChatId === chat.id ? 'bg-accent/5' : ''
                   }`}
                 >
                   {selectedChatId === chat.id && <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent" />}
                   <div className="flex justify-between items-start">
-                    <span className="font-bold text-sm text-gray-200 group-hover:text-accent transition-colors">{chat.userName}</span>
+                    <span className="font-bold text-sm text-gray-200 group-hover:text-accent transition-colors truncate max-w-[120px]">{chat.userName}</span>
                     <span className="text-[8px] text-gray-500 font-mono">{new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                   </div>
                   <p className="text-xs text-gray-500 truncate leading-relaxed">{chat.messages[chat.messages.length - 1]?.text}</p>
@@ -924,33 +988,44 @@ export default function App() {
           </div>
         </div>
 
-        <div className="flex-1 glass rounded-[2rem] overflow-hidden flex flex-col border border-white/5 relative">
+        <div className={`flex-1 glass rounded-[2rem] overflow-hidden flex flex-col border border-white/5 relative ${
+          !selectedChatId ? 'hidden lg:flex' : 'flex'
+        }`}>
           {selectedChat ? (
             <>
-              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center text-accent font-bold text-xl">
+              <div className="p-4 sm:p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.01]">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <button onClick={() => setSelectedChatId(null)} className="lg:hidden p-2 text-gray-400">
+                    <ChevronRight size={20} className="rotate-180" />
+                  </button>
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-accent/10 flex items-center justify-center text-accent font-bold text-lg sm:text-xl">
                     {selectedChat.userName[0]}
                   </div>
-                  <div>
-                    <h4 className="font-bold text-lg text-gray-200">{selectedChat.userName}</h4>
-                    <p className="text-xs text-gray-500 font-mono">{selectedChat.userEmail}</p>
+                  <div className="truncate max-w-[120px] sm:max-w-none">
+                    <h4 className="font-bold text-sm sm:text-lg text-gray-200 truncate">{selectedChat.userName}</h4>
+                    <p className="text-[10px] sm:text-xs text-gray-500 font-mono truncate">{selectedChat.userEmail}</p>
                   </div>
                 </div>
                 <button 
-                  onClick={() => setData(prev => ({
-                    ...prev,
-                    chats: prev.chats.map(c => c.id === selectedChat.id ? { ...c, status: 'Resolved' } : c)
-                  }))}
-                  className="px-4 py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-xs font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-2"
+                  onClick={() => {
+                    setData(prev => {
+                      const newData = {
+                        ...prev,
+                        chats: prev.chats.map(c => c.id === selectedChat.id ? { ...c, status: 'Resolved' } : c)
+                      };
+                      syncToFirebase(newData);
+                      return newData;
+                    });
+                  }}
+                  className="px-3 py-1.5 sm:px-4 sm:py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[10px] sm:text-xs font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1 sm:gap-2"
                 >
-                  <CheckCircle size={14} /> Resolved মার্ক করুন
+                  <CheckCircle size={12} className="sm:w-[14px] sm:h-[14px]" /> <span className="hidden sm:inline">Resolved মার্ক করুন</span><span className="sm:hidden">Resolved</span>
                 </button>
               </div>
-              <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-white/[0.01]">
+              <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-4 sm:space-y-6 custom-scrollbar bg-white/[0.01]">
                 {selectedChat.messages.map(msg => (
                   <div key={msg.id} className={`flex ${msg.role === 'admin' ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] p-4 rounded-2xl text-sm shadow-sm ${
+                    <div className={`max-w-[85%] sm:max-w-[70%] p-3 sm:p-4 rounded-2xl text-xs sm:text-sm shadow-sm ${
                       msg.role === 'admin' 
                         ? 'bg-accent text-white rounded-tr-none' 
                         : 'bg-white/5 text-gray-300 rounded-tl-none border border-white/10'
@@ -963,25 +1038,25 @@ export default function App() {
                   </div>
                 ))}
               </div>
-              <form onSubmit={handleSend} className="p-6 bg-white/[0.02] border-t border-white/5 flex gap-4">
+              <form onSubmit={handleSend} className="p-4 sm:p-6 bg-white/[0.02] border-t border-white/5 flex gap-2 sm:gap-4">
                 <input 
                   type="text" 
-                  placeholder="আপনার রিপ্লাই এখানে লিখুন..."
-                  className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:border-accent transition-colors"
+                  placeholder="আপনার রিপ্লাই..."
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl sm:rounded-2xl px-4 sm:px-6 py-3 sm:py-4 text-sm focus:outline-none focus:border-accent transition-colors"
                   value={input}
                   onChange={e => setInput(e.target.value)}
                 />
-                <button type="submit" className="w-14 h-14 bg-accent rounded-2xl text-white flex items-center justify-center hover:shadow-lg hover:shadow-accent/20 transition-all active:scale-95">
-                  <Send size={24} />
+                <button type="submit" className="w-12 h-12 sm:w-14 sm:h-14 bg-accent rounded-xl sm:rounded-2xl text-white flex items-center justify-center hover:shadow-lg hover:shadow-accent/20 transition-all active:scale-95">
+                  <Send size={20} className="sm:w-[24px] sm:h-[24px]" />
                 </button>
               </form>
             </>
           ) : (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4">
-              <div className="w-24 h-24 rounded-[2rem] bg-white/5 flex items-center justify-center">
-                <MessageCircle size={48} className="opacity-20" />
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4 p-6 text-center">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-[2rem] bg-white/5 flex items-center justify-center">
+                <MessageCircle size={40} className="opacity-20 sm:w-[48px] sm:h-[48px]" />
               </div>
-              <p className="font-display font-medium">একটি চ্যাট সিলেক্ট করে কথা শুরু করুন</p>
+              <p className="font-display font-medium text-sm sm:text-base">একটি চ্যাট সিলেক্ট করে কথা শুরু করুন</p>
             </div>
           )}
         </div>
@@ -994,7 +1069,11 @@ export default function App() {
 
     const handleSave = (e: React.FormEvent) => {
       e.preventDefault();
-      setData(prev => ({ ...prev, settings }));
+      setData(prev => {
+        const newData = { ...prev, settings };
+        syncToFirebase(newData);
+        return newData;
+      });
       alert('সেটিংস সফলভাবে সেভ করা হয়েছে!');
     };
 
@@ -1091,10 +1170,26 @@ export default function App() {
   return (
     <div className="min-h-screen bg-primary flex flex-col font-sans relative overflow-x-hidden">
       {/* Background Glows */}
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full pointer-events-none z-0" />
-      <div className="fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-highlight/10 blur-[120px] rounded-full pointer-events-none z-0" />
+      <div className={`fixed top-[-10%] left-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full pointer-events-none z-0 transition-all duration-1000 ${
+        designTheme === 'minimal' ? 'bg-blue-500/5' : 'bg-accent/10'
+      }`} />
+      <div className={`fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full pointer-events-none z-0 transition-all duration-1000 ${
+        designTheme === 'minimal' ? 'bg-emerald-500/5' : 'bg-highlight/10'
+      }`} />
       
-      {/* Header */}
+      {/* Design Switcher */}
+      <div className="fixed right-4 top-24 z-50 flex flex-col gap-2">
+        <button 
+          onClick={() => setDesignTheme(designTheme === 'premium' ? 'minimal' : 'premium')}
+          className="w-12 h-12 glass rounded-full flex items-center justify-center text-accent shadow-xl border border-white/10 hover:scale-110 transition-all group"
+          title="Change Design"
+        >
+          {designTheme === 'premium' ? <SettingsIcon size={20} /> : <LayoutDashboard size={20} />}
+          <div className="absolute right-14 bg-accent text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
+            ডিজাইন পরিবর্তন করুন
+          </div>
+        </button>
+      </div>
       <header className="sticky top-0 z-40 glass border-b border-white/10 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 bg-gradient-to-br from-accent to-highlight rounded-xl flex items-center justify-center shadow-lg shadow-highlight/20">
@@ -1135,6 +1230,28 @@ export default function App() {
       <main className="flex-1">
         {isAdmin ? (
           <div className="flex flex-col lg:flex-row min-h-[calc(100vh-120px)]">
+            {/* Admin Mobile Nav */}
+            <div className="lg:hidden flex overflow-x-auto p-2 gap-2 bg-white/[0.02] border-b border-white/5 no-scrollbar">
+              {[
+                { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard },
+                { id: 'orders', label: 'অর্ডার', icon: ClipboardList },
+                { id: 'users', label: 'ইউজার', icon: Users },
+                { id: 'products', label: 'প্রোডাক্টস', icon: Package },
+                { id: 'chat', label: 'চ্যাট', icon: MessageCircle },
+                { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
+              ].map(item => (
+                <button 
+                  key={item.id}
+                  onClick={() => setAdminTab(item.id as any)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+                    adminTab === item.id ? 'bg-accent text-white' : 'bg-white/5 text-gray-400'
+                  }`}
+                >
+                  <item.icon size={14} /> {item.label}
+                </button>
+              ))}
+            </div>
+
             {/* Admin Sidebar (Desktop) */}
             <aside className="hidden lg:flex flex-col w-64 glass border-r border-white/10 p-4 gap-2">
               {[
