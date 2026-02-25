@@ -84,7 +84,15 @@ export default function App() {
     const unsubscribe = onValue(dataRef, (snapshot) => {
       const firebaseData = snapshot.val();
       if (firebaseData) {
-        setData(firebaseData);
+        setData(prev => ({
+          ...prev,
+          ...firebaseData,
+          users: firebaseData.users || [],
+          orders: firebaseData.orders || [],
+          products: firebaseData.products || [],
+          chats: firebaseData.chats || [],
+          settings: firebaseData.settings || prev.settings
+        }));
       }
     });
     return () => unsubscribe();
@@ -157,7 +165,7 @@ export default function App() {
     const formData = new FormData(e.currentTarget);
     const password = formData.get('password') as string;
 
-    if (password === data.settings.adminPassword) {
+    if (password === (data.settings?.adminPassword || 'premiumzone2026')) {
       setIsAdmin(true);
       setShowAdminLogin(false);
     } else {
@@ -440,7 +448,7 @@ export default function App() {
       );
     }
 
-    const userOrders = data.orders.filter(o => o.userId === currentUser?.id);
+    const userOrders = (data.orders || []).filter(o => o.userId === currentUser?.id);
     
     return (
       <div className="p-4 pb-24 max-w-4xl mx-auto">
@@ -558,7 +566,7 @@ export default function App() {
             <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="p-6 bg-white/[0.02] rounded-3xl border border-white/5">
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">মোট অর্ডার</p>
-                <p className="text-2xl font-bold text-accent">{data.orders.filter(o => o.userId === currentUser.id).length}</p>
+                <p className="text-2xl font-bold text-accent">{(data.orders || []).filter(o => o.userId === currentUser.id).length}</p>
               </div>
               <div className="p-6 bg-white/[0.02] rounded-3xl border border-white/5">
                 <p className="text-[10px] text-gray-500 uppercase tracking-widest mb-1">মেম্বারশিপ</p>
@@ -588,7 +596,7 @@ export default function App() {
   };
 
   const ChatView = () => {
-    const chat = data.chats.find(c => c.userId === currentUser?.id);
+    const chat = (data.chats || []).find(c => c.userId === currentUser?.id);
     const [input, setInput] = useState('');
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -735,7 +743,7 @@ export default function App() {
               সাম্প্রতিক পেন্ডিং অর্ডার
             </h4>
             <div className="space-y-3 sm:space-y-4">
-              {data.orders.filter(o => o.status === 'Pending').slice(0, 5).map(order => (
+              {(data.orders || []).filter(o => o.status === 'Pending').slice(0, 5).map(order => (
                 <div key={order.id} className="flex items-center justify-between p-3 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl">
                   <div className="truncate mr-2">
                     <p className="font-bold text-xs sm:text-sm truncate">{order.productName}</p>
@@ -744,7 +752,7 @@ export default function App() {
                   <span className="text-xs font-bold text-accent shrink-0">৳{order.totalPrice}</span>
                 </div>
               ))}
-              {data.orders.filter(o => o.status === 'Pending').length === 0 && (
+              {(data.orders || []).filter(o => o.status === 'Pending').length === 0 && (
                 <p className="text-center text-gray-500 py-8 text-sm">কোনো পেন্ডিং অর্ডার নেই</p>
               )}
             </div>
@@ -756,7 +764,7 @@ export default function App() {
               সাম্প্রতিক চ্যাট
             </h4>
             <div className="space-y-3 sm:space-y-4">
-              {data.chats.slice(0, 5).map(chat => (
+              {(data.chats || []).slice(0, 5).map(chat => (
                 <div key={chat.id} className="flex items-center justify-between p-3 sm:p-4 bg-white/5 rounded-xl sm:rounded-2xl">
                   <div className="truncate mr-2">
                     <p className="font-bold text-xs sm:text-sm truncate">{chat.userName}</p>
@@ -765,7 +773,7 @@ export default function App() {
                   <span className="text-[8px] sm:text-[10px] text-gray-500 shrink-0">{new Date(chat.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
               ))}
-              {data.chats.length === 0 && (
+              {(data.chats || []).length === 0 && (
                 <p className="text-center text-gray-500 py-8 text-sm">কোনো চ্যাট হিস্টোরি নেই</p>
               )}
             </div>
@@ -1124,7 +1132,7 @@ export default function App() {
   };
 
   const AdminSettings = () => {
-    const [settings, setSettings] = useState(data.settings);
+    const [settings, setSettings] = useState(data.settings || getAppData().settings);
 
     const handleSave = (e: React.FormEvent) => {
       e.preventDefault();
@@ -1302,13 +1310,13 @@ export default function App() {
       {/* Marquee */}
       <div className="bg-accent/10 border-b border-white/5 py-2 overflow-hidden">
         <div className="animate-marquee text-xs font-medium text-accent px-4">
-          {data.settings.notice}
+          {data.settings?.notice || ''}
         </div>
       </div>
 
       {/* Main Content */}
       <main className="flex-1">
-        {data.settings.isMaintenance && !isAdmin ? (
+        {(data.settings?.isMaintenance || false) && !isAdmin ? (
           <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
             <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center text-amber-500 mb-8 animate-pulse">
               <AlertCircle size={48} />
@@ -1318,7 +1326,7 @@ export default function App() {
               দুঃখিত! আমাদের ওয়েবসাইটে বর্তমানে কিছু কাজ চলছে। খুব শীঘ্রই আমরা আবার ফিরে আসবো। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন।
             </p>
             <div className="mt-8 flex gap-4">
-              <a href={`https://wa.me/${data.settings.whatsapp}`} className="px-6 py-3 bg-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all">আমাদের সাথে যোগাযোগ করুন</a>
+              <a href={`https://wa.me/${data.settings?.whatsapp || ''}`} className="px-6 py-3 bg-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all">আমাদের সাথে যোগাযোগ করুন</a>
             </div>
           </div>
         ) : isAdmin ? (
