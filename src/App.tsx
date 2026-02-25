@@ -348,35 +348,47 @@ export default function App() {
         <motion.h2 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-4xl sm:text-6xl font-display font-bold mb-4 tracking-tighter"
+          className={`text-4xl sm:text-6xl font-display font-bold mb-4 tracking-tighter ${
+            designTheme === 'minimal' ? 'text-slate-100' : ''
+          }`}
         >
-          Elevate Your <span className="text-gradient">Experience</span>
+          আপনার ডিজিটাল <span className={designTheme === 'minimal' ? 'text-sky-400' : 'text-gradient'}>অভিজ্ঞতা</span> উন্নত করুন
         </motion.h2>
         <p className="text-gray-400 max-w-2xl mx-auto text-sm sm:text-base">
-          PremiumZone provides the most exclusive digital assets and subscriptions with instant delivery and 24/7 support.
+          PremiumZone আপনাকে দিচ্ছে সবথেকে এক্সক্লুসিভ ডিজিটাল অ্যাসেট এবং সাবস্ক্রিপশন, সাথে থাকছে ইনস্ট্যান্ট ডেলিভারি এবং ২৪/৭ সাপোর্ট।
         </p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8">
-        {data.products.map(product => (
+        {(data.products || []).map(product => (
           <motion.div 
             key={product.id}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             whileHover={{ y: -10 }}
-            className={`glass rounded-2xl sm:rounded-[2rem] overflow-hidden flex flex-col group ${
-              designTheme === 'minimal' ? 'border-none shadow-none bg-white/[0.03]' : 'card-premium'
+            className={`rounded-2xl sm:rounded-[2rem] overflow-hidden flex flex-col group transition-all duration-300 ${
+              designTheme === 'minimal' 
+                ? 'bg-slate-900 border border-slate-800 shadow-none' 
+                : 'glass card-premium'
             }`}
           >
-            <div className="h-32 sm:h-56 bg-white/[0.02] flex items-center justify-center p-4 sm:p-8 relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            <div className={`h-32 sm:h-56 flex items-center justify-center p-4 sm:p-8 relative overflow-hidden ${
+              designTheme === 'minimal' ? 'bg-slate-800/50' : 'bg-white/[0.02]'
+            }`}>
+              <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ${
+                designTheme === 'minimal' ? 'bg-sky-500/5' : 'bg-gradient-to-br from-accent/10 to-transparent'
+              }`} />
               <img src={product.image} alt={product.name} className="h-full object-contain relative z-10 drop-shadow-2xl transition-transform duration-500 group-hover:scale-110" referrerPolicy="no-referrer" />
             </div>
             <div className="p-4 sm:p-8 flex-1 flex flex-col">
               <div className="flex flex-col sm:flex-row justify-between items-start mb-2 sm:mb-4">
-                <h3 className="text-sm sm:text-2xl font-display font-bold tracking-tight truncate w-full">{product.name}</h3>
+                <h3 className={`text-sm sm:text-2xl font-display font-bold tracking-tight truncate w-full ${
+                  designTheme === 'minimal' ? 'text-slate-100' : ''
+                }`}>{product.name}</h3>
                 <div className="text-left sm:text-right">
-                  <span className="text-accent font-bold text-base sm:text-xl block">৳{product.price}</span>
+                  <span className={`font-bold text-base sm:text-xl block ${
+                    designTheme === 'minimal' ? 'text-sky-400' : 'text-accent'
+                  }`}>৳{product.price}</span>
                   <span className="text-[8px] sm:text-[10px] text-gray-500 uppercase tracking-widest">{product.duration}</span>
                 </div>
               </div>
@@ -392,7 +404,7 @@ export default function App() {
                   disabled={product.stock <= 0}
                   className={`w-full py-2 sm:py-4 rounded-xl sm:rounded-2xl font-bold transition-all flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-base ${
                     product.stock > 0 
-                      ? (designTheme === 'minimal' ? 'bg-accent text-white' : 'bg-white/5 hover:text-white btn-premium')
+                      ? (designTheme === 'minimal' ? 'bg-sky-500 text-white hover:bg-sky-600' : 'bg-white/5 hover:text-white btn-premium')
                       : 'bg-white/[0.02] text-gray-600 cursor-not-allowed'
                   }`}
                 >
@@ -408,6 +420,26 @@ export default function App() {
   );
 
   const OrdersView = () => {
+    if (!currentUser) {
+      return (
+        <div className="p-4 pb-24 max-w-4xl mx-auto">
+          <div className="glass rounded-[2.5rem] p-12 text-center border border-white/5">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-600">
+              <ClipboardList size={40} />
+            </div>
+            <h3 className="text-xl font-bold mb-2">আপনি লগইন করেননি</h3>
+            <p className="text-gray-500 mb-8">আপনার অর্ডার হিস্টোরি দেখতে অনুগ্রহ করে লগইন করুন।</p>
+            <button 
+              onClick={() => setShowLogin(true)}
+              className="w-full py-4 bg-accent rounded-2xl font-bold text-white shadow-lg shadow-accent/20 hover:shadow-accent/40 transition-all"
+            >
+              লগইন করুন
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     const userOrders = data.orders.filter(o => o.userId === currentUser?.id);
     
     return (
@@ -486,13 +518,21 @@ export default function App() {
               <UserIcon size={40} />
             </div>
             <h3 className="text-xl font-bold mb-2">আপনি লগইন করেননি</h3>
-            <p className="text-gray-500 mb-8">প্রোফাইল দেখতে এবং অর্ডার করতে অনুগ্রহ করে লগইন করুন।</p>
-            <button 
-              onClick={() => setShowLogin(true)}
-              className="w-full py-4 bg-accent rounded-2xl font-bold text-white shadow-lg shadow-accent/20 hover:shadow-accent/40 transition-all"
-            >
-              লগইন করুন
-            </button>
+            <p className="text-gray-500 mb-8">প্রোফাইল দেখতে এবং অর্ডার করতে অনুগ্রহ করে লগইন বা রেজিস্ট্রেশন করুন।</p>
+            <div className="flex flex-col gap-3">
+              <button 
+                onClick={() => setShowLogin(true)}
+                className="w-full py-4 bg-accent rounded-2xl font-bold text-white shadow-lg shadow-accent/20 hover:shadow-accent/40 transition-all"
+              >
+                লগইন করুন
+              </button>
+              <button 
+                onClick={() => setShowRegister(true)}
+                className="w-full py-4 bg-white/5 rounded-2xl font-bold text-gray-300 hover:bg-white/10 transition-all"
+              >
+                রেজিস্ট্রেশন করুন
+              </button>
+            </div>
           </div>
         </div>
       );
@@ -565,6 +605,25 @@ export default function App() {
       setInput('');
     };
 
+    if (!currentUser) {
+      return (
+        <div className="p-4 pb-24 max-w-4xl mx-auto h-[calc(100vh-180px)] flex flex-col items-center justify-center">
+          <div className="glass rounded-[2.5rem] p-12 text-center border border-white/5 w-full max-w-md">
+            <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6 text-gray-600">
+              <MessageCircle size={40} />
+            </div>
+            <h3 className="text-xl font-bold mb-2">আপনি লগইন করেননি</h3>
+            <p className="text-gray-500 mb-8">সাপোর্ট পেতে এবং চ্যাট করতে অনুগ্রহ করে লগইন করুন।</p>
+            <button 
+              onClick={() => setShowLogin(true)}
+              className="w-full py-4 bg-accent rounded-2xl font-bold text-white shadow-lg shadow-accent/20 hover:shadow-accent/40 transition-all"
+            >
+              লগইন করুন
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="p-4 pb-24 max-w-4xl mx-auto h-[calc(100vh-180px)] flex flex-col">
         <div className="flex items-center justify-between mb-6">
@@ -634,10 +693,10 @@ export default function App() {
 
   const AdminDashboard = () => {
     const stats = [
-      { label: 'পেন্ডিং', value: data.orders.filter(o => o.status === 'Pending').length, icon: Clock, color: designTheme === 'minimal' ? 'text-white' : 'text-amber-500', bg: 'bg-amber-500/10' },
-      { label: 'অ্যাপ্রুভড', value: data.orders.filter(o => o.status === 'Approved').length, icon: CheckCircle, color: designTheme === 'minimal' ? 'text-white' : 'text-blue-500', bg: 'bg-blue-500/10' },
-      { label: 'কমপ্লিটেড', value: data.orders.filter(o => o.status === 'Completed').length, icon: ShoppingBag, color: designTheme === 'minimal' ? 'text-white' : 'text-emerald-500', bg: 'bg-emerald-500/10' },
-      { label: 'ইউজার', value: data.users.length, icon: Users, color: designTheme === 'minimal' ? 'text-white' : 'text-purple-500', bg: 'bg-purple-500/10' },
+      { label: 'পেন্ডিং', value: (data.orders || []).filter(o => o.status === 'Pending').length, icon: Clock, color: designTheme === 'minimal' ? 'text-sky-400' : 'text-amber-500', bg: designTheme === 'minimal' ? 'bg-sky-400/10' : 'bg-amber-500/10' },
+      { label: 'অ্যাপ্রুভড', value: (data.orders || []).filter(o => o.status === 'Approved').length, icon: CheckCircle, color: designTheme === 'minimal' ? 'text-indigo-400' : 'text-blue-500', bg: designTheme === 'minimal' ? 'bg-indigo-400/10' : 'bg-blue-500/10' },
+      { label: 'কমপ্লিটেড', value: (data.orders || []).filter(o => o.status === 'Completed').length, icon: ShoppingBag, color: designTheme === 'minimal' ? 'text-emerald-400' : 'text-emerald-500', bg: designTheme === 'minimal' ? 'bg-emerald-400/10' : 'bg-emerald-500/10' },
+      { label: 'ইউজার', value: (data.users || []).length, icon: Users, color: designTheme === 'minimal' ? 'text-slate-400' : 'text-purple-500', bg: designTheme === 'minimal' ? 'bg-slate-400/10' : 'bg-purple-500/10' },
     ];
 
     return (
@@ -720,11 +779,11 @@ export default function App() {
     const [filter, setFilter] = useState<OrderStatus | 'All'>('All');
     const [search, setSearch] = useState('');
 
-    const filteredOrders = data.orders.filter(o => {
+    const filteredOrders = (data.orders || []).filter(o => {
       const matchesFilter = filter === 'All' || o.status === filter;
-      const matchesSearch = o.trxId.toLowerCase().includes(search.toLowerCase()) || 
-                           o.userEmail.toLowerCase().includes(search.toLowerCase()) ||
-                           o.id.toLowerCase().includes(search.toLowerCase());
+      const matchesSearch = (o.trxId || '').toLowerCase().includes(search.toLowerCase()) || 
+                           (o.userEmail || '').toLowerCase().includes(search.toLowerCase()) ||
+                           (o.id || '').toLowerCase().includes(search.toLowerCase());
       return matchesFilter && matchesSearch;
     });
 
@@ -847,7 +906,7 @@ export default function App() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
-        {data.products.map(product => (
+        {(data.products || []).map(product => (
           <motion.div 
             key={product.id} 
             layout
@@ -904,7 +963,7 @@ export default function App() {
               </tr>
             </thead>
             <tbody className="text-sm divide-y divide-white/5">
-              {data.users.map(user => (
+              {(data.users || []).map(user => (
                 <tr key={user.id} className="hover:bg-white/[0.02] transition-colors group">
                   <td className="p-6 font-mono text-[10px] text-gray-500">{user.id}</td>
                   <td className="p-6">
@@ -923,7 +982,7 @@ export default function App() {
                   </td>
                   <td className="p-6">
                     <span className="px-3 py-1 bg-white/5 rounded-full text-xs font-bold text-gray-400 group-hover:bg-accent/10 group-hover:text-accent transition-colors">
-                      {data.orders.filter(o => o.userId === user.id).length} টি
+                      {(data.orders || []).filter(o => o.userId === user.id).length} টি
                     </span>
                   </td>
                 </tr>
@@ -937,7 +996,7 @@ export default function App() {
 
   const AdminChat = () => {
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
-    const selectedChat = data.chats.find(c => c.id === selectedChatId);
+    const selectedChat = (data.chats || []).find(c => c.id === selectedChatId);
     const [input, setInput] = useState('');
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
@@ -961,13 +1020,13 @@ export default function App() {
         }`}>
           <div className="p-4 sm:p-6 border-b border-white/5 font-display font-bold text-lg flex items-center justify-between">
             চ্যাট লিস্ট
-            <span className="text-[10px] bg-accent/10 text-accent px-2 py-1 rounded-full">{data.chats.length}</span>
+            <span className="text-[10px] bg-accent/10 text-accent px-2 py-1 rounded-full">{(data.chats || []).length}</span>
           </div>
           <div className="flex-1 overflow-y-auto custom-scrollbar">
-            {data.chats.length === 0 ? (
+            {(data.chats || []).length === 0 ? (
               <div className="p-12 text-center text-gray-500 text-sm italic">কোনো চ্যাট হিস্টোরি নেই</div>
             ) : (
-              data.chats.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()).map(chat => (
+              [...(data.chats || [])].sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()).map(chat => (
                 <button 
                   key={chat.id}
                   onClick={() => setSelectedChatId(chat.id)}
@@ -1157,6 +1216,25 @@ export default function App() {
             </div>
           </div>
 
+          <div className="space-y-4">
+            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-widest flex items-center gap-2">
+              <AlertCircle size={14} className="text-amber-500" /> মেইনটেন্যান্স মোড
+            </h4>
+            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+              <div>
+                <p className="text-sm font-bold">মেইনটেন্যান্স মোড অন/অফ</p>
+                <p className="text-[10px] text-gray-500">এটি অন করলে সাধারণ ইউজাররা ওয়েবসাইট দেখতে পারবে না</p>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setSettings({ ...settings, isMaintenance: !settings.isMaintenance })}
+                className={`w-14 h-8 rounded-full relative transition-colors ${settings.isMaintenance ? 'bg-accent' : 'bg-white/10'}`}
+              >
+                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full transition-all ${settings.isMaintenance ? 'left-7' : 'left-1'}`} />
+              </button>
+            </div>
+          </div>
+
           <button type="submit" className="w-full py-5 bg-gradient-to-r from-accent to-highlight rounded-2xl font-bold text-lg shadow-xl shadow-accent/20 hover:shadow-accent/40 transition-all active:scale-95">
             সেটিংস আপডেট করুন
           </button>
@@ -1168,13 +1246,15 @@ export default function App() {
   // --- Main Layout ---
 
   return (
-    <div className="min-h-screen bg-primary flex flex-col font-sans relative overflow-x-hidden">
+    <div className={`min-h-screen flex flex-col font-sans relative overflow-x-hidden transition-colors duration-500 ${
+      designTheme === 'minimal' ? 'bg-slate-950 text-slate-200' : 'bg-primary text-white'
+    }`}>
       {/* Background Glows */}
       <div className={`fixed top-[-10%] left-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full pointer-events-none z-0 transition-all duration-1000 ${
-        designTheme === 'minimal' ? 'bg-blue-500/5' : 'bg-accent/10'
+        designTheme === 'minimal' ? 'bg-sky-500/5' : 'bg-accent/10'
       }`} />
       <div className={`fixed bottom-[-10%] right-[-10%] w-[40%] h-[40%] blur-[120px] rounded-full pointer-events-none z-0 transition-all duration-1000 ${
-        designTheme === 'minimal' ? 'bg-emerald-500/5' : 'bg-highlight/10'
+        designTheme === 'minimal' ? 'bg-indigo-500/5' : 'bg-highlight/10'
       }`} />
       
       {/* Design Switcher */}
@@ -1228,30 +1308,21 @@ export default function App() {
 
       {/* Main Content */}
       <main className="flex-1">
-        {isAdmin ? (
-          <div className="flex flex-col lg:flex-row min-h-[calc(100vh-120px)]">
-            {/* Admin Mobile Nav */}
-            <div className="lg:hidden flex overflow-x-auto p-2 gap-2 bg-white/[0.02] border-b border-white/5 no-scrollbar">
-              {[
-                { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard },
-                { id: 'orders', label: 'অর্ডার', icon: ClipboardList },
-                { id: 'users', label: 'ইউজার', icon: Users },
-                { id: 'products', label: 'প্রোডাক্টস', icon: Package },
-                { id: 'chat', label: 'চ্যাট', icon: MessageCircle },
-                { id: 'settings', label: 'সেটিংস', icon: SettingsIcon },
-              ].map(item => (
-                <button 
-                  key={item.id}
-                  onClick={() => setAdminTab(item.id as any)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                    adminTab === item.id ? 'bg-accent text-white' : 'bg-white/5 text-gray-400'
-                  }`}
-                >
-                  <item.icon size={14} /> {item.label}
-                </button>
-              ))}
+        {data.settings.isMaintenance && !isAdmin ? (
+          <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 text-center">
+            <div className="w-24 h-24 bg-amber-500/10 rounded-[2.5rem] flex items-center justify-center text-amber-500 mb-8 animate-pulse">
+              <AlertCircle size={48} />
             </div>
-
+            <h2 className="text-3xl font-display font-bold mb-4">ওয়েবসাইট মেইনটেন্যান্স চলছে</h2>
+            <p className="text-gray-400 max-w-md mx-auto leading-relaxed">
+              দুঃখিত! আমাদের ওয়েবসাইটে বর্তমানে কিছু কাজ চলছে। খুব শীঘ্রই আমরা আবার ফিরে আসবো। অনুগ্রহ করে কিছুক্ষণ অপেক্ষা করুন।
+            </p>
+            <div className="mt-8 flex gap-4">
+              <a href={`https://wa.me/${data.settings.whatsapp}`} className="px-6 py-3 bg-white/5 rounded-xl text-sm font-bold hover:bg-white/10 transition-all">আমাদের সাথে যোগাযোগ করুন</a>
+            </div>
+          </div>
+        ) : isAdmin ? (
+          <div className="flex flex-col lg:flex-row min-h-[calc(100vh-120px)]">
             {/* Admin Sidebar (Desktop) */}
             <aside className="hidden lg:flex flex-col w-64 glass border-r border-white/10 p-4 gap-2">
               {[
@@ -1276,7 +1347,7 @@ export default function App() {
             </aside>
 
             {/* Admin Mobile Nav */}
-            <div className="lg:hidden flex overflow-x-auto p-2 glass border-b border-white/10 gap-2">
+            <div className="lg:hidden flex overflow-x-auto p-2 glass border-b border-white/10 gap-2 no-scrollbar">
               {[
                 { id: 'dashboard', label: 'ড্যাশবোর্ড', icon: LayoutDashboard },
                 { id: 'orders', label: 'অর্ডার', icon: ClipboardList },
@@ -1310,9 +1381,9 @@ export default function App() {
         ) : (
           <>
             {activeTab === 'home' && <HomeView />}
-            {activeTab === 'orders' && (currentUser ? <OrdersView /> : <div className="p-12 text-center text-gray-400">অর্ডার দেখতে লগইন করুন।</div>)}
-            {activeTab === 'profile' && (currentUser ? <ProfileView /> : <div className="p-12 text-center text-gray-400">প্রোফাইল দেখতে লগইন করুন।</div>)}
-            {activeTab === 'chat' && (currentUser ? <ChatView /> : <div className="p-12 text-center text-gray-400">সাপোর্ট পেতে লগইন করুন।</div>)}
+            {activeTab === 'orders' && <OrdersView />}
+            {activeTab === 'profile' && <ProfileView />}
+            {activeTab === 'chat' && <ChatView />}
           </>
         )}
       </main>

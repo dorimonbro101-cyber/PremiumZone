@@ -33,11 +33,12 @@ const INITIAL_DATA: AppData = {
     }
   ],
   settings: {
-    notice: 'Welcome to PremiumZone! Get the best digital products at affordable prices.',
+    notice: 'PremiumZone এ আপনাকে স্বাগতম! আমাদের নতুন প্রোডাক্টগুলো চেক করুন।',
     bkash: '01700000000',
     nagad: '01800000000',
     whatsapp: '8801700000000',
-    adminPassword: 'premiumzone2026'
+    adminPassword: 'premiumzone2026',
+    isMaintenance: false
   },
   chats: []
 };
