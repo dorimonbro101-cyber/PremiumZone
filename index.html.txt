@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Siam Hasan | Personal Website</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body{
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    color:#fff;
+}
+
+/* card */
+.card{
+    background: rgba(255,255,255,0.08);
+    backdrop-filter: blur(10px);
+    border-radius:20px;
+    padding:35px 30px;
+    width:380px;
+    text-align:center;
+    box-shadow:0 20px 40px rgba(0,0,0,0.4);
+    animation: fadeUp 1.5s ease;
+}
+
+/* animation */
+@keyframes fadeUp{
+    from{
+        opacity:0;
+        transform: translateY(40px);
+    }
+    to{
+        opacity:1;
+        transform: translateY(0);
+    }
+}
+
+/* profile image */
+.card img{
+    width:130px;
+    height:130px;
+    border-radius:50%;
+    border:4px solid #00e6ff;
+    margin-bottom:15px;
+    animation: glow 2s infinite alternate;
+}
+
+@keyframes glow{
+    from{ box-shadow:0 0 10px #00e6ff; }
+    to{ box-shadow:0 0 25px #00e6ff; }
+}
+
+h1{
+    font-size:26px;
+    margin-bottom:5px;
+}
+
+.role{
+    color:#00e6ff;
+    font-weight:600;
+    margin-bottom:15px;
+}
+
+.bio{
+    font-size:14px;
+    line-height:1.6;
+    color:#ddd;
+    margin-bottom:20px;
+}
+
+/* skills */
+.skills{
+    font-size:13px;
+    margin-bottom:20px;
+}
+
+.skills span{
+    background:#00e6ff;
+    color:#000;
+    padding:5px 10px;
+    border-radius:20px;
+    margin:4px;
+    display:inline-block;
+    font-weight:600;
+}
+
+/* social buttons */
+.social a{
+    display:block;
+    text-decoration:none;
+    color:#fff;
+    padding:12px;
+    margin:10px 0;
+    border-radius:30px;
+    font-weight:600;
+    transition:0.3s;
+}
+
+.social a:hover{
+    transform: scale(1.05);
+}
+
+.fb{ background:#1877f2; }
+.tg{ background:#0088cc; }
+.ig{ background:linear-gradient(45deg,#f58529,#dd2a7b,#8134af); }
+.yt{ background:#ff0000; }
+
+footer{
+    margin-top:15px;
+    font-size:12px;
+    color:#aaa;
+}
+</style>
+</head>
+
+<body>
+
+<div class="card">
+
+    <!-- নিজের ছবি দিতে চাইলে photo.jpg বসাও -->
+    <img src="https://via.placeholder.com/130" alt="Profile">
+
+    <h1>Siam Hasan</h1>
+    <div class="role">Cyber Specialist & Online Marketer</div>
+
+    <div class="bio">
+        I am a Cyber Specialist and Online Marketing expert.  
+        I work with digital security, social media growth,  
+        online branding and modern technology solutions.
+    </div>
+
+    <div class="skills">
+        <span>Cyber Security</span>
+        <span>Online Marketing</span>
+        <span>Social Media</span>
+        <span>Content Strategy</span>
+        <span>Digital Growth</span>
+    </div>
+
+    <div class="social">
+        <a class="fb" href="https://facebook.com/yourid" target="_blank">Facebook</a>
+        <a class="tg" href="https://t.me/yourid" target="_blank">Telegram</a>
+        <a class="ig" href="https://instagram.com/yourid" target="_blank">Instagram</a>
+        <a class="yt" href="https://youtube.com/@yourid" target="_blank">YouTube</a>
+    </div>
+
+    <footer>
+        © 2026 Siam Hasan | Personal Website
+    </footer>
+
+</div>
+
+</body>
+</html>
