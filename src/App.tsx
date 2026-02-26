@@ -85,38 +85,15 @@ export default function App() {
     const unsubscribe = onValue(dataRef, (snapshot) => {
       const firebaseData = snapshot.val();
       if (firebaseData) {
-        // Deep comparison would be better, but at least ensure we don't crash and only update if needed
-        setData(prev => {
-          // Check if data is actually different to prevent unnecessary re-renders
-          // For simplicity, we compare JSON strings, but only if it's a small object.
-          // Since it's AppData, it might be large. Let's just do a basic check.
-          const newUsers = firebaseData.users || [];
-          const newOrders = firebaseData.orders || [];
-          const newProducts = firebaseData.products || [];
-          const newChats = firebaseData.chats || [];
-          const newSettings = firebaseData.settings || prev.settings;
-
-          // If everything is the same, return prev to avoid re-render
-          if (
-            prev.users.length === newUsers.length &&
-            prev.orders.length === newOrders.length &&
-            prev.products.length === newProducts.length &&
-            prev.chats.length === newChats.length &&
-            JSON.stringify(prev.settings) === JSON.stringify(newSettings)
-          ) {
-            return prev;
-          }
-
-          return {
-            ...prev,
-            ...firebaseData,
-            users: newUsers,
-            orders: newOrders,
-            products: newProducts,
-            chats: newChats,
-            settings: newSettings
-          };
-        });
+        setData(prev => ({
+          ...prev,
+          ...firebaseData,
+          users: firebaseData.users || [],
+          orders: firebaseData.orders || [],
+          products: firebaseData.products || [],
+          chats: firebaseData.chats || [],
+          settings: firebaseData.settings || prev.settings
+        }));
       }
     });
     return () => unsubscribe();
@@ -175,9 +152,11 @@ export default function App() {
       registerDate: new Date().toISOString()
     };
 
-    const newData = { ...data, users: [...(data.users || []), newUser] };
-    setData(newData);
-    syncToFirebase(newData);
+    setData(prev => {
+      const newData = { ...prev, users: [...(prev.users || []), newUser] };
+      syncToFirebase(newData);
+      return newData;
+    });
     setCurrentUser(newUser);
     setShowRegister(false);
   };
@@ -234,13 +213,15 @@ export default function App() {
       orderDate: new Date().toISOString()
     };
 
-    const newData = {
-      ...data,
-      orders: [newOrder, ...(data.orders || [])],
-      products: (data.products || []).map(p => p.id === product.id ? { ...p, stock: p.stock - quantity } : p)
-    };
-    setData(newData);
-    syncToFirebase(newData);
+    setData(prev => {
+      const newData = {
+        ...prev,
+        orders: [newOrder, ...(prev.orders || [])],
+        products: (prev.products || []).map(p => p.id === product.id ? { ...p, stock: p.stock - quantity } : p)
+      };
+      syncToFirebase(newData);
+      return newData;
+    });
 
     setShowOrderModal(null);
     setActiveTab('orders');
@@ -249,24 +230,28 @@ export default function App() {
 
   // --- Admin Handlers ---
   const updateOrderStatus = (orderId: string, status: OrderStatus, reason?: string) => {
-    const orders = data.orders || [];
-    const newData = {
-      ...data,
-      orders: orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason } : o)
-    };
-    setData(newData);
-    syncToFirebase(newData);
+    setData(prev => {
+      const orders = prev.orders || [];
+      const newData = {
+        ...prev,
+        orders: orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason } : o)
+      };
+      syncToFirebase(newData);
+      return newData;
+    });
     setShowRejectionModal(null);
   };
 
   const deleteProduct = (id: string) => {
     if (confirm('আপনি কি নিশ্চিত যে এই প্রোডাক্টটি ডিলিট করতে চান?')) {
-      const newData = {
-        ...data,
-        products: (data.products || []).filter(p => p.id !== id)
-      };
-      setData(newData);
-      syncToFirebase(newData);
+      setData(prev => {
+        const newData = {
+          ...prev,
+          products: (prev.products || []).filter(p => p.id !== id)
+        };
+        syncToFirebase(newData);
+        return newData;
+      });
     }
   };
 
@@ -283,14 +268,16 @@ export default function App() {
       image: formData.get('image') as string || 'https://api.dicebear.com/7.x/shapes/svg?seed=' + Date.now()
     };
 
-    let newData;
-    if (existingId) {
-      newData = { ...data, products: (data.products || []).map(p => p.id === existingId ? product : p) };
-    } else {
-      newData = { ...data, products: [...(data.products || []), product] };
-    }
-    setData(newData);
-    syncToFirebase(newData);
+    setData(prev => {
+      let newData;
+      if (existingId) {
+        newData = { ...prev, products: (prev.products || []).map(p => p.id === existingId ? product : p) };
+      } else {
+        newData = { ...prev, products: [...(prev.products || []), product] };
+      }
+      syncToFirebase(newData);
+      return newData;
+    });
 
     setShowProductEditModal(null);
     setShowAddProductModal(false);
@@ -308,34 +295,36 @@ export default function App() {
       timestamp: new Date().toISOString()
     };
 
-    const chats = data.chats || [];
-    const users = data.users || [];
-    const existingChat = chats.find(c => c.userId === userId);
-    let newChats;
+    setData(prev => {
+      const chats = prev.chats || [];
+      const users = prev.users || [];
+      const existingChat = chats.find(c => c.userId === userId);
+      let newChats;
 
-    if (existingChat) {
-      newChats = chats.map(c => c.userId === userId ? {
-        ...c,
-        messages: [...c.messages, newMessage],
-        lastMessageAt: newMessage.timestamp,
-        status: role === 'user' ? 'Open' : c.status
-      } : c);
-    } else {
-      const user = users.find(u => u.id === userId);
-      newChats = [...chats, {
-        id: Math.random().toString(36).substr(2, 9),
-        userId,
-        userName: user?.name || 'Unknown',
-        userEmail: user?.email || 'Unknown',
-        messages: [newMessage],
-        lastMessageAt: newMessage.timestamp,
-        status: 'Open'
-      }];
-    }
+      if (existingChat) {
+        newChats = chats.map(c => c.userId === userId ? {
+          ...c,
+          messages: [...c.messages, newMessage],
+          lastMessageAt: newMessage.timestamp,
+          status: role === 'user' ? 'Open' : c.status
+        } : c);
+      } else {
+        const user = users.find(u => u.id === userId);
+        newChats = [...chats, {
+          id: Math.random().toString(36).substr(2, 9),
+          userId,
+          userName: user?.name || 'Unknown',
+          userEmail: user?.email || 'Unknown',
+          messages: [newMessage],
+          lastMessageAt: newMessage.timestamp,
+          status: 'Open'
+        }];
+      }
 
-    const newData = { ...data, chats: newChats as SupportChat[] };
-    setData(newData);
-    syncToFirebase(newData);
+      const newData = { ...prev, chats: newChats as SupportChat[] };
+      syncToFirebase(newData);
+      return newData;
+    });
 
     // AI Bot Response
     if (role === 'user') {
@@ -1090,12 +1079,14 @@ export default function App() {
                 </div>
                 <button 
                   onClick={() => {
-                    const newData = {
-                      ...data,
-                      chats: (data.chats || []).map(c => c.id === selectedChat.id ? { ...c, status: 'Resolved' } : c)
-                    };
-                    setData(newData);
-                    syncToFirebase(newData);
+                    setData(prev => {
+                      const newData = {
+                        ...prev,
+                        chats: (prev.chats || []).map(c => c.id === selectedChat.id ? { ...c, status: 'Resolved' } : c)
+                      };
+                      syncToFirebase(newData);
+                      return newData;
+                    });
                   }}
                   className="px-3 py-1.5 sm:px-4 sm:py-2 bg-emerald-500/10 text-emerald-500 rounded-xl text-[10px] sm:text-xs font-bold hover:bg-emerald-500/20 transition-colors flex items-center gap-1 sm:gap-2"
                 >
@@ -1149,9 +1140,11 @@ export default function App() {
 
     const handleSave = (e: React.FormEvent) => {
       e.preventDefault();
-      const newData = { ...data, settings };
-      setData(newData);
-      syncToFirebase(newData);
+      setData(prev => {
+        const newData = { ...prev, settings };
+        syncToFirebase(newData);
+        return newData;
+      });
       alert('সেটিংস সফলভাবে সেভ করা হয়েছে!');
     };
 
