@@ -100,7 +100,15 @@ export default function App() {
   }, []);
 
   const syncToFirebase = (newData: AppData) => {
-    set(ref(db, 'appData'), newData);
+    try {
+      // Firebase doesn't allow 'undefined' values. Convert them to null.
+      const sanitizedData = JSON.parse(JSON.stringify(newData, (_, value) => 
+        value === undefined ? null : value
+      ));
+      set(ref(db, 'appData'), sanitizedData);
+    } catch (error) {
+      console.error("Firebase sync error:", error);
+    }
   };
 
   // Persistence
@@ -230,15 +238,12 @@ export default function App() {
 
   // --- Admin Handlers ---
   const updateOrderStatus = (orderId: string, status: OrderStatus, reason?: string) => {
-    setData(prev => {
-      const orders = prev.orders || [];
-      const newData = {
-        ...prev,
-        orders: orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason } : o)
-      };
-      syncToFirebase(newData);
-      return newData;
-    });
+    const orders = data.orders || [];
+    const nextOrders = orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason || null } : o);
+    const newData = { ...data, orders: nextOrders };
+    
+    setData(newData);
+    syncToFirebase(newData);
     setShowRejectionModal(null);
   };
 
@@ -793,9 +798,14 @@ export default function App() {
 
     const filteredOrders = (data.orders || []).filter(o => {
       const matchesFilter = filter === 'All' || o.status === filter;
-      const matchesSearch = (o.trxId || '').toLowerCase().includes(search.toLowerCase()) || 
-                           (o.userEmail || '').toLowerCase().includes(search.toLowerCase()) ||
-                           (o.id || '').toLowerCase().includes(search.toLowerCase());
+      const trxId = o.trxId || '';
+      const userEmail = o.userEmail || '';
+      const userName = o.userName || '';
+      const orderId = o.id || '';
+      const matchesSearch = trxId.toLowerCase().includes(search.toLowerCase()) || 
+                           userEmail.toLowerCase().includes(search.toLowerCase()) ||
+                           userName.toLowerCase().includes(search.toLowerCase()) ||
+                           orderId.toLowerCase().includes(search.toLowerCase());
       return matchesFilter && matchesSearch;
     });
 
@@ -1009,6 +1019,15 @@ export default function App() {
   const AdminChat = () => {
     const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
     const selectedChat = (data.chats || []).find(c => c.id === selectedChatId);
+
+    if (selectedChatId && !selectedChat) {
+      return (
+        <div className="h-full flex flex-col items-center justify-center text-gray-500 p-6 text-center">
+          <p>চ্যাটটি খুঁজে পাওয়া যায়নি</p>
+          <button onClick={() => setSelectedChatId(null)} className="mt-4 text-accent underline">ফিরে যান</button>
+        </div>
+      );
+    }
     const [input, setInput] = useState('');
     const scrollRef = React.useRef<HTMLDivElement>(null);
 
