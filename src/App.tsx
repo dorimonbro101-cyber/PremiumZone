@@ -77,6 +77,7 @@ export default function App() {
   const [showRejectionModal, setShowRejectionModal] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [designTheme, setDesignTheme] = useState<'premium' | 'minimal'>('premium');
+  const [isLoading, setIsLoading] = useState(true);
   const [hasSynced, setHasSynced] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'bKash' | 'Nagad'>('bKash');
 
@@ -97,24 +98,29 @@ export default function App() {
         }));
       } else {
         // If Firebase is empty, initialize it with default data
-        // but only if we haven't synced yet to avoid overwriting
         set(dataRef, getAppData());
       }
       setHasSynced(true);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Firebase read error:", error);
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   const syncToFirebase = (newData: AppData) => {
-    if (!hasSynced) return;
+    // We still want to avoid syncing if we haven't even tried to load yet
+    // but once we've attempted a load (even if empty), we should allow syncing.
+    if (!hasSynced && isLoading) return;
+    
     try {
-      // Firebase doesn't allow 'undefined' values. Convert them to null.
       const sanitizedData = JSON.parse(JSON.stringify(newData, (_, value) => 
         value === undefined ? null : value
       ));
-      // Use set on the root for now as the AppData structure is simple, 
-      // but ensure we are using the latest data.
-      set(ref(db, 'appData'), sanitizedData);
+      set(ref(db, 'appData'), sanitizedData).catch(err => {
+        console.error("Firebase write error:", err);
+      });
     } catch (error) {
       console.error("Firebase sync error:", error);
     }
@@ -1287,6 +1293,22 @@ export default function App() {
   };
 
   // --- Main Layout ---
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="text-center"
+        >
+          <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-display font-bold text-white mb-2">PremiumZone</h2>
+          <p className="text-gray-500 animate-pulse">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</p>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen flex flex-col font-sans relative overflow-x-hidden transition-colors duration-500 ${
