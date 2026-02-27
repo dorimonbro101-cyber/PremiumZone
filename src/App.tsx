@@ -35,7 +35,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { AppData, User, Product, Order, OrderStatus, SupportChat, ChatMessage } from './types';
 import { getAppData, saveAppData } from './storage';
-import { db, ref, onValue, set } from './firebase';
+import { db, ref, onValue, set, auth, signInAnonymously, onAuthStateChanged } from './firebase';
 
 // --- Components ---
 
@@ -78,11 +78,26 @@ export default function App() {
   const [quantity, setQuantity] = useState(1);
   const [designTheme, setDesignTheme] = useState<'premium' | 'minimal'>('premium');
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'bKash' | 'Nagad'>('bKash');
 
-  // Firebase Sync
+  // Firebase Auth & Sync
   useEffect(() => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setIsAuthenticated(true);
+      } else {
+        signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+      }
+    });
+
+    return () => unsubscribeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
     const dataRef = ref(db, 'appData');
     const unsubscribe = onValue(dataRef, (snapshot) => {
       const firebaseData = snapshot.val();
@@ -107,7 +122,7 @@ export default function App() {
       setIsLoading(false);
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthenticated]);
 
   const syncToFirebase = (newData: AppData) => {
     // We still want to avoid syncing if we haven't even tried to load yet
