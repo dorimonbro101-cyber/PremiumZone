@@ -46,14 +46,11 @@ const INITIAL_DATA: AppData = {
 export const STORAGE_KEY = 'premiumzone_data';
 
 export const getAppData = (): AppData => {
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_DATA));
-    return INITIAL_DATA;
-  }
-  return JSON.parse(data);
+  return INITIAL_DATA;
 };
 
 export const saveAppData = (data: AppData) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  // Shared data is now handled by Firebase only.
+  // We keep this as a no-op to avoid breaking imports, 
+  // but we won't call it for shared state anymore.
 };

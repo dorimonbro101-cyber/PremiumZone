@@ -77,6 +77,7 @@ export default function App() {
   const [showRejectionModal, setShowRejectionModal] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [designTheme, setDesignTheme] = useState<'premium' | 'minimal'>('premium');
+  const [hasSynced, setHasSynced] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'bKash' | 'Nagad'>('bKash');
 
   // Firebase Sync
@@ -94,28 +95,32 @@ export default function App() {
           chats: firebaseData.chats || [],
           settings: firebaseData.settings || prev.settings
         }));
+      } else {
+        // If Firebase is empty, initialize it with default data
+        // but only if we haven't synced yet to avoid overwriting
+        set(dataRef, getAppData());
       }
+      setHasSynced(true);
     });
     return () => unsubscribe();
   }, []);
 
   const syncToFirebase = (newData: AppData) => {
+    if (!hasSynced) return;
     try {
       // Firebase doesn't allow 'undefined' values. Convert them to null.
       const sanitizedData = JSON.parse(JSON.stringify(newData, (_, value) => 
         value === undefined ? null : value
       ));
+      // Use set on the root for now as the AppData structure is simple, 
+      // but ensure we are using the latest data.
       set(ref(db, 'appData'), sanitizedData);
     } catch (error) {
       console.error("Firebase sync error:", error);
     }
   };
 
-  // Persistence
-  useEffect(() => {
-    saveAppData(data);
-  }, [data]);
-
+  // Persistence for user session only
   useEffect(() => {
     if (currentUser) {
       localStorage.setItem('premiumzone_user', JSON.stringify(currentUser));
@@ -238,12 +243,13 @@ export default function App() {
 
   // --- Admin Handlers ---
   const updateOrderStatus = (orderId: string, status: OrderStatus, reason?: string) => {
-    const orders = data.orders || [];
-    const nextOrders = orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason || null } : o);
-    const newData = { ...data, orders: nextOrders };
-    
-    setData(newData);
-    syncToFirebase(newData);
+    setData(prev => {
+      const orders = prev.orders || [];
+      const nextOrders = orders.map(o => o.id === orderId ? { ...o, status, rejectionReason: reason || null } : o);
+      const newData = { ...prev, orders: nextOrders };
+      syncToFirebase(newData);
+      return newData;
+    });
     setShowRejectionModal(null);
   };
 
@@ -1156,6 +1162,12 @@ export default function App() {
 
   const AdminSettings = () => {
     const [settings, setSettings] = useState(data.settings || getAppData().settings);
+
+    useEffect(() => {
+      if (data.settings) {
+        setSettings(data.settings);
+      }
+    }, [data.settings]);
 
     const handleSave = (e: React.FormEvent) => {
       e.preventDefault();
