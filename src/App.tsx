@@ -78,6 +78,7 @@ export default function App() {
   const [quantity, setQuantity] = useState(1);
   const [designTheme, setDesignTheme] = useState<'premium' | 'minimal'>('premium');
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [hasSynced, setHasSynced] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState<'bKash' | 'Nagad'>('bKash');
@@ -87,8 +88,13 @@ export default function App() {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setIsAuthenticated(true);
+        setError(null);
       } else {
-        signInAnonymously(auth).catch(err => console.error("Auth error:", err));
+        signInAnonymously(auth).catch(err => {
+          console.error("Auth error:", err);
+          setError("Authentication failed. Please ensure 'Anonymous Sign-in' is enabled in Firebase Console.");
+          setIsLoading(false);
+        });
       }
     });
 
@@ -113,12 +119,17 @@ export default function App() {
         }));
       } else {
         // If Firebase is empty, initialize it with default data
-        set(dataRef, getAppData());
+        set(dataRef, getAppData()).catch(err => {
+          console.error("Firebase init error:", err);
+          setError("Failed to initialize database. Check your Firebase rules.");
+        });
       }
       setHasSynced(true);
       setIsLoading(false);
+      setError(null);
     }, (error) => {
       console.error("Firebase read error:", error);
+      setError("Database access denied. Please check your Firebase Realtime Database rules.");
       setIsLoading(false);
     });
     return () => unsubscribe();
@@ -1309,17 +1320,37 @@ export default function App() {
 
   // --- Main Layout ---
 
-  if (isLoading) {
+  if (isLoading || error) {
     return (
       <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center p-4">
         <motion.div 
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="text-center"
+          className="text-center max-w-md"
         >
-          <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
-          <h2 className="text-2xl font-display font-bold text-white mb-2">PremiumZone</h2>
-          <p className="text-gray-500 animate-pulse">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</p>
+          {error ? (
+            <>
+              <div className="w-16 h-16 bg-rose-500/10 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                <AlertCircle size={32} />
+              </div>
+              <h2 className="text-2xl font-display font-bold text-white mb-4">Connection Error</h2>
+              <p className="text-gray-400 mb-8 leading-relaxed">
+                {error}
+              </p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="px-8 py-3 bg-accent text-white rounded-2xl font-bold hover:shadow-lg hover:shadow-accent/20 transition-all active:scale-95"
+              >
+                Retry Connection
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+              <h2 className="text-2xl font-display font-bold text-white mb-2">PremiumZone</h2>
+              <p className="text-gray-500 animate-pulse">লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</p>
+            </>
+          )}
         </motion.div>
       </div>
     );
